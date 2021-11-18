@@ -45,8 +45,9 @@ public abstract class PluginDescriptor : IPluginDescriptor
     public virtual Version Version => Assembly.GetAssembly(GetType())?.GetName().Version ?? new Version(1, 0, 0);
 
     /// <inheritdoc />
-    public virtual void ConfigureServices(IServiceCollection serviceCollection)
+    public virtual Result ConfigureServices(IServiceCollection serviceCollection)
     {
+        return Result.FromSuccess();
     }
 
     /// <inheritdoc />

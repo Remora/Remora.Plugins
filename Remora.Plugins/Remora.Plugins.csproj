@@ -18,6 +18,7 @@
 
     <ItemGroup>
       <PackageReference Include="Remora.Extensions.Options.Immutable" Version="1.0.1" />
+      <PackageReference Include="System.Linq.Async" Version="5.0.0" />
     </ItemGroup>
 
 </Project>

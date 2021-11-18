@@ -25,6 +25,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
+using Microsoft.Extensions.DependencyInjection;
+using Remora.Plugins.Abstractions;
+using Remora.Plugins.Errors;
 using Remora.Results;
 
 namespace Remora.Plugins;
@@ -53,8 +56,84 @@ public sealed class PluginDependencyTree
     }
 
     /// <summary>
+    /// Configures the services required by the plugins.
+    /// </summary>
+    /// <param name="serviceCollection">The service collection to configure.</param>
+    /// <returns>A result which may or may not have succeeded.</returns>
+    public Result ConfigureServices(IServiceCollection serviceCollection)
+    {
+        var results = Walk
+        (
+            node => new PluginConfigurationFailed
+            (
+                node.Plugin,
+                "One or more of the plugin's dependencies failed to configure their services."
+            ),
+            node => node.Plugin.ConfigureServices(serviceCollection)
+        ).ToList();
+
+        return results.Any(r => !r.IsSuccess)
+            ? new AggregateError(results.Where(r => !r.IsSuccess).Cast<IResult>().ToList())
+            : Result.FromSuccess();
+    }
+
+    /// <summary>
+    /// Initializes the plugins in the tree.
+    /// </summary>
+    /// <param name="services">The available services.</param>
+    /// <returns>A result which may or may not have succeeded.</returns>
+    public async Task<Result> InitializeAsync(IServiceProvider services)
+    {
+        var results = await WalkAsync
+        (
+            node => new PluginInitializationFailed
+            (
+                node.Plugin,
+                "One or more of the plugin's dependencies failed to initialize."
+            ),
+            async node => await node.Plugin.InitializeAsync(services)
+        ).ToListAsync();
+
+        return results.Any(r => !r.IsSuccess)
+            ? new AggregateError(results.Where(r => !r.IsSuccess).Cast<IResult>().ToList())
+            : Result.FromSuccess();
+    }
+
+    /// <summary>
+    /// Migrates any persistent data stores of the plugins in the tree.
+    /// </summary>
+    /// <param name="services">The available services.</param>
+    /// <returns>A result which may or may not have succeeded.</returns>
+    public async Task<Result> MigrateAsync(IServiceProvider services)
+    {
+        var results = await WalkAsync
+        (
+            node => new PluginMigrationFailed
+            (
+                node.Plugin,
+                "One or more of the plugin's dependencies failed to migrate."
+            ),
+            async node =>
+            {
+                if (node.Plugin is not IMigratablePlugin migratablePlugin)
+                {
+                    return Result.FromSuccess();
+                }
+
+                return await migratablePlugin.MigrateAsync(services);
+            }
+        ).ToListAsync();
+
+        return results.Any(r => !r.IsSuccess)
+            ? new AggregateError(results.Where(r => !r.IsSuccess).Cast<IResult>().ToList())
+            : Result.FromSuccess();
+    }
+
+    /// <summary>
     /// Asynchronously walks the plugin tree, performing the given operations on each node. If the operation fails,
-    /// the walk terminates at that point.
+    /// the walk terminates at that point. If a node appears in more than one place in the tree, the operations are only
+    /// performed the first time it is encountered, and the walk will not proceed down any child paths the node may
+    /// have.
     /// </summary>
     /// <param name="errorFactory">
     /// A factory function to create an error when the operation fails on the parent node.
@@ -69,9 +148,13 @@ public sealed class PluginDependencyTree
         Func<PluginDependencyTreeNode, Task<Result>>? postOperation = null
     )
     {
+        var visitedNodes = new HashSet<PluginDependencyTreeNode>();
         foreach (var branch in _branches)
         {
-            await foreach (var nodeResult in WalkNodeAsync(branch, errorFactory, preOperation, postOperation))
+            await foreach
+            (
+                var nodeResult in WalkNodeAsync(branch, visitedNodes, errorFactory, preOperation, postOperation)
+            )
             {
                 yield return nodeResult;
             }
@@ -95,7 +178,11 @@ public sealed class PluginDependencyTree
         Func<PluginDependencyTreeNode, Result>? postOperation = null
     )
     {
-        return _branches.SelectMany(branch => WalkNode(branch, errorFactory, preOperation, postOperation));
+        var visitedNodes = new HashSet<PluginDependencyTreeNode>();
+        return _branches.SelectMany
+        (
+            branch => WalkNode(branch, visitedNodes, errorFactory, preOperation, postOperation)
+        );
     }
 
     /// <summary>
@@ -115,11 +202,20 @@ public sealed class PluginDependencyTree
     private async IAsyncEnumerable<Result> WalkNodeAsync
     (
         PluginDependencyTreeNode node,
+        ISet<PluginDependencyTreeNode> visitedNodes,
         Func<PluginDependencyTreeNode, Result> errorFactory,
         Func<PluginDependencyTreeNode, Task<Result>> preOperation,
         Func<PluginDependencyTreeNode, Task<Result>>? postOperation = null
     )
     {
+        if (visitedNodes.Contains(node))
+        {
+            // No need to traverse this again
+            yield break;
+        }
+
+        visitedNodes.Add(node);
+
         var shouldTerminate = false;
 
         await foreach (var p in PerformNodeOperationAsync(node, errorFactory, preOperation))
@@ -133,7 +229,10 @@ public sealed class PluginDependencyTree
 
         foreach (var dependent in node.Dependents)
         {
-            await foreach (var result in WalkNodeAsync(dependent, errorFactory, preOperation, postOperation))
+            await foreach
+            (
+                var result in WalkNodeAsync(dependent, visitedNodes, errorFactory, preOperation, postOperation)
+            )
             {
                 if (!result.IsSuccess)
                 {
@@ -158,11 +257,20 @@ public sealed class PluginDependencyTree
     private IEnumerable<Result> WalkNode
     (
         PluginDependencyTreeNode node,
+        ISet<PluginDependencyTreeNode> visitedNodes,
         Func<PluginDependencyTreeNode, Result> errorFactory,
         Func<PluginDependencyTreeNode, Result> preOperation,
         Func<PluginDependencyTreeNode, Result>? postOperation = null
     )
     {
+        if (visitedNodes.Contains(node))
+        {
+            // No need to traverse this again
+            yield break;
+        }
+
+        visitedNodes.Add(node);
+
         var shouldTerminate = false;
 
         foreach (var p in PerformNodeOperation(node, errorFactory, preOperation))
@@ -176,7 +284,7 @@ public sealed class PluginDependencyTree
 
         foreach (var dependent in node.Dependents)
         {
-            foreach (var result in WalkNode(dependent, errorFactory, preOperation, postOperation))
+            foreach (var result in WalkNode(dependent, visitedNodes, errorFactory, preOperation, postOperation))
             {
                 if (!result.IsSuccess)
                 {

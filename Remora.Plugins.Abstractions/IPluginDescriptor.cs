@@ -53,12 +53,13 @@ public interface IPluginDescriptor
     /// Configures services provided by the plugin in the application's service collection.
     /// </summary>
     /// <param name="serviceCollection">The service collection.</param>
-    void ConfigureServices(IServiceCollection serviceCollection);
+    /// <returns>A result that may or may not have succeeded.</returns>
+    Result ConfigureServices(IServiceCollection serviceCollection);
 
     /// <summary>
     /// Performs any post-registration initialization required by the plugin.
     /// </summary>
     /// <param name="serviceProvider">The service provider.</param>
-    /// <returns>true if the plugin could successfully initialize itself; otherwise, false.</returns>
+    /// <returns>A result that may or may not have succeeded.</returns>
     ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider);
 }

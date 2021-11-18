@@ -38,12 +38,5 @@ public interface IMigratablePlugin : IPluginDescriptor
     /// </summary>
     /// <param name="serviceProvider">The available services.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<Result> MigratePluginAsync(IServiceProvider serviceProvider);
-
-    /// <summary>
-    /// Determines whether the persistent store of the plugin has been created.
-    /// </summary>
-    /// <param name="serviceProvider">The available services.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<bool> HasCreatedPersistentStoreAsync(IServiceProvider serviceProvider);
+    Task<Result> MigrateAsync(IServiceProvider serviceProvider);
 }
