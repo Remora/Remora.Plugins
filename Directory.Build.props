@@ -1,19 +1,17 @@
 <!--
-    This file contains common properties for all Remora projects. It is divided into multiple sections, depending on the
-    use case for the properties.
+    This file contains common properties for all projects. It is divided into multiple sections, depending on the use
+    case for the properties.
 -->
 
 <Project>
     <!-- Common properties for all projects -->
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <Deterministic>true</Deterministic>
         <DebugSymbols>true</DebugSymbols>
-    </PropertyGroup>
 
-    <PropertyGroup>
-        <SolutionDir>$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)/))</SolutionDir>
+        <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+        <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     </PropertyGroup>
 
     <!-- NuGet-related properties -->
@@ -21,7 +19,6 @@
         <Title>$(AssemblyName)</Title>
         <Authors>Jarl Gullberg</Authors>
         <Copyright>Jarl Gullberg 2020</Copyright>
-        <Company>Firwood Software</Company>
         <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
 
@@ -32,17 +29,18 @@
         <EmbedAllSources>true</EmbedAllSources>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-        <RepositoryUrl>https://github.com/Nihlus/Remora</RepositoryUrl>
+        <RepositoryUrl>https://github.com/Nihlus/Remora.Plugins</RepositoryUrl>
         <RepositoryBranch>master</RepositoryBranch>
-        <PackageOutputPath>$(SolutionDir)/nuget</PackageOutputPath>
-        <PackageProjectUrl>https://github.com/Nihlus/Remora</PackageProjectUrl>
-        <PackageTags>remora</PackageTags>
+        <PackageOutputPath>$(MSBuildThisFileDirectory)nuget</PackageOutputPath>
+        <PackageProjectUrl>https://github.com/Nihlus/Remora.Plugins</PackageProjectUrl>
+        <PackageTags>remora;plugins;dynamic;</PackageTags>
+        <PackageIcon>shark.png</PackageIcon>
     </PropertyGroup>
 
     <!-- Code inspection properties -->
     <PropertyGroup>
-        <StyleCopRuleset>$(SolutionDir)/stylecop.ruleset</StyleCopRuleset>
-        <StyleCopConfiguration>$(SolutionDir)/stylecop.json</StyleCopConfiguration>
+        <StyleCopRuleset>$(MSBuildThisFileDirectory)stylecop.ruleset</StyleCopRuleset>
+        <StyleCopConfiguration>$(MSBuildThisFileDirectory)stylecop.json</StyleCopConfiguration>
 
         <Nullable>enable</Nullable>
 
@@ -81,9 +79,12 @@
             CS8643;
             CS8644;
             CS8645;
+            CS8762;
+            CS8765;
         </WarningsAsErrors>
         <NoWarn>
             CS8632;
+            AD0001;
         </NoWarn>
     </PropertyGroup>
 
@@ -92,15 +93,20 @@
             <Link>stylecop.json</Link>
             <InProject>false</InProject>
         </AdditionalFiles>
-        <AdditionalFiles Include="$(StyleCopRuleset">
+        <AdditionalFiles Include="$(StyleCopRuleset)">
             <Link>stylecop.ruleset</Link>
             <InProject>false</InProject>
         </AdditionalFiles>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.321" PrivateAssets="all" />
+        <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.312" PrivateAssets="all" />
+    </ItemGroup>
+
+    <!-- Language support packages -->
+    <ItemGroup>
         <PackageReference Include="Nullable" Version="1.3.0" PrivateAssets="all" />
+        <PackageReference Include="IsExternalInit" Version="1.0.1" PrivateAssets="all" />
     </ItemGroup>
 
     <!-- JetBrains Annotations -->
@@ -111,5 +117,13 @@
     <!-- SourceLink -->
     <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.0" PrivateAssets="All"/>
+    </ItemGroup>
+
+    <!-- NuGet Icon -->
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)images/shark.png" Pack="true" PackagePath="/">
+            <Link>shark.png</Link>
+            <InProject>false</InProject>
+        </None>
     </ItemGroup>
 </Project>

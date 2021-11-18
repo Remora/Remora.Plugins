@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>3.1.1</Version>
+        <TargetFrameworks>netstandard2.1;net6.0</TargetFrameworks>
+        <Version>4.0.0</Version>
         <Description>
             Abstract representations of a plugin system.
         </Description>
         <PackageReleaseNotes>
-            Update dependencies.
-            Remove redundant attributes.
+            Major layout change; broke project out into its own repository.
+            Finished implementation of PluginTree.
         </PackageReleaseNotes>
         <PackageTags>$(PackageTags);plugin;plugins;dynamic</PackageTags>
     </PropertyGroup>
