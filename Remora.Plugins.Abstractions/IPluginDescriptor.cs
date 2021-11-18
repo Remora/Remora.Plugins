@@ -21,6 +21,7 @@
 //
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
@@ -60,6 +61,7 @@ public interface IPluginDescriptor
     /// Performs any post-registration initialization required by the plugin.
     /// </summary>
     /// <param name="serviceProvider">The service provider.</param>
+    /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result that may or may not have succeeded.</returns>
-    ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider);
+    ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider, CancellationToken ct = default);
 }

@@ -23,6 +23,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,8 +83,9 @@ public sealed class PluginTree
     /// Initializes the plugins in the tree.
     /// </summary>
     /// <param name="services">The available services.</param>
+    /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result which may or may not have succeeded.</returns>
-    public async Task<Result> InitializeAsync(IServiceProvider services)
+    public async Task<Result> InitializeAsync(IServiceProvider services, CancellationToken ct = default)
     {
         var results = await WalkAsync
         (
@@ -91,8 +94,9 @@ public sealed class PluginTree
                 node.Plugin,
                 "One or more of the plugin's dependencies failed to initialize."
             ),
-            async node => await node.Plugin.InitializeAsync(services)
-        ).ToListAsync();
+            async (node, c) => await node.Plugin.InitializeAsync(services, c),
+            ct: ct
+        ).ToListAsync(ct);
 
         return results.Any(r => !r.IsSuccess)
             ? new AggregateError(results.Where(r => !r.IsSuccess).Cast<IResult>().ToList())
@@ -103,8 +107,9 @@ public sealed class PluginTree
     /// Migrates any persistent data stores of the plugins in the tree.
     /// </summary>
     /// <param name="services">The available services.</param>
+    /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result which may or may not have succeeded.</returns>
-    public async Task<Result> MigrateAsync(IServiceProvider services)
+    public async Task<Result> MigrateAsync(IServiceProvider services, CancellationToken ct = default)
     {
         var results = await WalkAsync
         (
@@ -113,16 +118,17 @@ public sealed class PluginTree
                 node.Plugin,
                 "One or more of the plugin's dependencies failed to migrate."
             ),
-            async node =>
+            async (node, c) =>
             {
                 if (node.Plugin is not IMigratablePlugin migratablePlugin)
                 {
                     return Result.FromSuccess();
                 }
 
-                return await migratablePlugin.MigrateAsync(services);
-            }
-        ).ToListAsync();
+                return await migratablePlugin.MigrateAsync(services, c);
+            },
+            ct: ct
+        ).ToListAsync(ct);
 
         return results.Any(r => !r.IsSuccess)
             ? new AggregateError(results.Where(r => !r.IsSuccess).Cast<IResult>().ToList())
@@ -140,12 +146,14 @@ public sealed class PluginTree
     /// </param>
     /// <param name="preOperation">The operation to perform while walking down into the tree.</param>
     /// <param name="postOperation">The operation to perform while walking up into the tree.</param>
+    /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async IAsyncEnumerable<Result> WalkAsync
     (
         Func<PluginTreeNode, Result> errorFactory,
-        Func<PluginTreeNode, Task<Result>> preOperation,
-        Func<PluginTreeNode, Task<Result>>? postOperation = null
+        Func<PluginTreeNode, CancellationToken, Task<Result>> preOperation,
+        Func<PluginTreeNode, CancellationToken, Task<Result>>? postOperation = null,
+        [EnumeratorCancellation] CancellationToken ct = default
     )
     {
         var visitedNodes = new HashSet<PluginTreeNode>();
@@ -153,7 +161,7 @@ public sealed class PluginTree
         {
             await foreach
             (
-                var nodeResult in WalkNodeAsync(branch, visitedNodes, errorFactory, preOperation, postOperation)
+                var nodeResult in WalkNodeAsync(branch, visitedNodes, errorFactory, preOperation, postOperation, ct)
             )
             {
                 yield return nodeResult;
@@ -204,8 +212,9 @@ public sealed class PluginTree
         PluginTreeNode node,
         ISet<PluginTreeNode> visitedNodes,
         Func<PluginTreeNode, Result> errorFactory,
-        Func<PluginTreeNode, Task<Result>> preOperation,
-        Func<PluginTreeNode, Task<Result>>? postOperation = null
+        Func<PluginTreeNode, CancellationToken, Task<Result>> preOperation,
+        Func<PluginTreeNode, CancellationToken, Task<Result>>? postOperation = null,
+        [EnumeratorCancellation] CancellationToken ct = default
     )
     {
         if (visitedNodes.Contains(node))
@@ -218,7 +227,7 @@ public sealed class PluginTree
 
         var shouldTerminate = false;
 
-        await foreach (var p in PerformNodeOperationAsync(node, errorFactory, preOperation))
+        await foreach (var p in PerformNodeOperationAsync(node, errorFactory, preOperation, ct))
         {
             yield return p;
             if (!p.IsSuccess)
@@ -248,7 +257,7 @@ public sealed class PluginTree
             yield break;
         }
 
-        await foreach (var p in PerformNodeOperationAsync(node, errorFactory, postOperation))
+        await foreach (var p in PerformNodeOperationAsync(node, errorFactory, postOperation, ct))
         {
             yield return p;
         }
@@ -310,13 +319,14 @@ public sealed class PluginTree
     (
         PluginTreeNode node,
         Func<PluginTreeNode, Result> errorFactory,
-        Func<PluginTreeNode, Task<Result>> operation
+        Func<PluginTreeNode, CancellationToken, Task<Result>> operation,
+        [EnumeratorCancellation] CancellationToken ct = default
     )
     {
         Result operationResult;
         try
         {
-            operationResult = await operation(node);
+            operationResult = await operation(node, ct);
         }
         catch (Exception e)
         {

@@ -22,6 +22,7 @@
 
 using System;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +52,7 @@ public abstract class PluginDescriptor : IPluginDescriptor
     }
 
     /// <inheritdoc />
-    public virtual ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider)
+    public virtual ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider, CancellationToken ct = default)
     {
         return new(Result.FromSuccess());
     }
