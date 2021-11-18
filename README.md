@@ -60,38 +60,30 @@ var pluginService = new PluginService();
 var serviceCollection = new ServiceCollection()
     .AddSingleton(pluginService);
 
-var successfullyRegisteredPlugins = new List<IPluginDescriptor>();
-
-var availablePlugins = pluginService.LoadAvailablePlugins();
-foreach (var availablePlugin in availablePlugins)
+var pluginTree = pluginService.LoadPluginTree();
+var configurePlugins = pluginTree.ConfigureServices(serviceCollection);
+if (!configurePlugins.IsSuccess)
 {
-    if (!await availablePlugin.RegisterServicesAsync(serviceCollection))
-    {
-        this.Log.LogWarning
-        (
-            $"The plugin \"{availablePlugin.Name}\" (v{availablePlugin.Version}) failed to " +
-            "register its services. It will not be loaded."
-        );
-
-        continue;
-    }
-
-    successfullyRegisteredPlugins.Add(availablePlugin);
+    // check configurePlugins.Error to figure out why
+    return;
 }
 
 _services = serviceCollection.BuildServiceProvider();
 
-foreach (var plugin in successfullyRegisteredPlugins)
+var initializePlugins = await pluginTree.InitializeAsync(_services, ct);
+if (!initializePlugins.IsSuccess)
 {
-    if (!await plugin.InitializeAsync(_services))
-    {
-        this.Log.LogWarning
-        (
-            $"The plugin \"{plugin.Name}\"" +
-            $" (v{plugin.Version}) failed to initialize. It may not be functional."
-        );
-    }
+    // check initializePlugins.Error to figure out why
+    return;
 }
+
+var migratePlugins = await pluginTree.MigrateAsync(_services, ct);
+if (!migratePlugins.IsSuccess)
+{
+    // check migratePlugins.Error to figure out why
+    return;
+}
+
 ```
 
 Plugins should be designed in such a way that a registration or initialization 

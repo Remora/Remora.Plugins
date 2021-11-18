@@ -139,6 +139,11 @@ public sealed class PluginService
     /// <summary>
     /// Loads all available plugins into a flat list.
     /// </summary>
+    /// <remarks>
+    /// This method should generally not be used for actually loading plugins into your application, since it may not
+    /// properly order plugins in more complex dependency graphs. Prefer using <see cref="LoadPluginTree"/> and its
+    /// associated methods.
+    /// </remarks>
     /// <returns>The descriptors of the available plugins.</returns>
     [Pure]
     public IEnumerable<IPluginDescriptor> LoadPlugins()
@@ -179,7 +184,7 @@ public sealed class PluginService
     /// <param name="assembly">The assembly.</param>
     /// <returns>The plugin descriptor.</returns>
     [Pure]
-    private Result<IPluginDescriptor> LoadPluginDescriptor(Assembly assembly)
+    private static Result<IPluginDescriptor> LoadPluginDescriptor(Assembly assembly)
     {
         var pluginAttribute = assembly.GetCustomAttribute<RemoraPlugin>();
         if (pluginAttribute is null)
