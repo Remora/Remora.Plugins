@@ -1,5 +1,5 @@
 //
-//  PluginDependencyTreeNode.cs
+//  PluginTreeNode.cs
 //
 //  Author:
 //       Jarl Gullberg <jarl.gullberg@gmail.com>
@@ -31,9 +31,9 @@ namespace Remora.Plugins;
 /// Represents a node in a dependency tree.
 /// </summary>
 [PublicAPI]
-public sealed class PluginDependencyTreeNode
+public sealed class PluginTreeNode
 {
-    private readonly List<PluginDependencyTreeNode> _dependents;
+    private readonly List<PluginTreeNode> _dependents;
 
     /// <summary>
     /// Gets the plugin.
@@ -43,28 +43,28 @@ public sealed class PluginDependencyTreeNode
     /// <summary>
     /// Gets the nodes that depend on this plugin.
     /// </summary>
-    public IReadOnlyCollection<PluginDependencyTreeNode> Dependents => _dependents;
+    public IReadOnlyCollection<PluginTreeNode> Dependents => _dependents;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PluginDependencyTreeNode"/> class.
+    /// Initializes a new instance of the <see cref="PluginTreeNode"/> class.
     /// </summary>
     /// <param name="plugin">The plugin.</param>
     /// <param name="dependants">The dependants.</param>
-    public PluginDependencyTreeNode
+    public PluginTreeNode
     (
         IPluginDescriptor plugin,
-        List<PluginDependencyTreeNode>? dependants = null
+        List<PluginTreeNode>? dependants = null
     )
     {
         this.Plugin = plugin;
-        _dependents = dependants ?? new List<PluginDependencyTreeNode>();
+        _dependents = dependants ?? new List<PluginTreeNode>();
     }
 
     /// <summary>
     /// Adds a dependant to this node.
     /// </summary>
     /// <param name="node">The node.</param>
-    internal void AddDependent(PluginDependencyTreeNode node)
+    internal void AddDependent(PluginTreeNode node)
     {
         if (_dependents.Contains(node))
         {
@@ -78,7 +78,7 @@ public sealed class PluginDependencyTreeNode
     /// Gets all the dependant plugins in this branch.
     /// </summary>
     /// <returns>The dependant plugins.</returns>
-    public IEnumerable<PluginDependencyTreeNode> GetAllDependents()
+    public IEnumerable<PluginTreeNode> GetAllDependents()
     {
         foreach (var dependant in this.Dependents)
         {

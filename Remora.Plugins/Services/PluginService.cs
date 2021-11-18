@@ -54,12 +54,12 @@ public sealed class PluginService
 
     /// <summary>
     /// Loads all available plugins into a tree structure, ordered by their topological dependencies. Effectively, this
-    /// means that <see cref="PluginDependencyTree.Branches"/> will contain dependency-free plugins, with subsequent
+    /// means that <see cref="PluginTree.Branches"/> will contain dependency-free plugins, with subsequent
     /// dependents below them (recursively).
     /// </summary>
     /// <returns>The dependency tree.</returns>
     [PublicAPI, Pure]
-    public PluginDependencyTree LoadPluginTree()
+    public PluginTree LoadPluginTree()
     {
         var pluginAssemblies = LoadAvailablePluginAssemblies().ToList();
         var pluginsWithDependencies = pluginAssemblies.ToDictionary
@@ -96,8 +96,8 @@ public sealed class PluginService
             return IsDependency(assembly, dependency) && dependencies.All(d => !IsDependency(d, dependency));
         }
 
-        var tree = new PluginDependencyTree();
-        var nodes = new Dictionary<Assembly, PluginDependencyTreeNode>();
+        var tree = new PluginTree();
+        var nodes = new Dictionary<Assembly, PluginTreeNode>();
 
         var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
         while (sorted.Count > 0)
@@ -109,7 +109,7 @@ public sealed class PluginService
                 continue;
             }
 
-            var node = new PluginDependencyTreeNode(loadDescriptorResult.Entity);
+            var node = new PluginTreeNode(loadDescriptorResult.Entity);
 
             var dependencies = pluginsWithDependencies[current].ToList();
             if (!dependencies.Any())

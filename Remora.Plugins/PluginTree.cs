@@ -1,5 +1,5 @@
 //
-//  PluginDependencyTree.cs
+//  PluginTree.cs
 //
 //  Author:
 //       Jarl Gullberg <jarl.gullberg@gmail.com>
@@ -36,23 +36,23 @@ namespace Remora.Plugins;
 /// Represents a tree of plugins, ordered by their dependencies.
 /// </summary>
 [PublicAPI]
-public sealed class PluginDependencyTree
+public sealed class PluginTree
 {
-    private readonly List<PluginDependencyTreeNode> _branches;
+    private readonly List<PluginTreeNode> _branches;
 
     /// <summary>
     /// Gets the root nodes of the identified plugin dependency branches. The root node is considered to be the
     /// application itself, which is implicitly initialized.
     /// </summary>
-    public IReadOnlyCollection<PluginDependencyTreeNode> Branches => _branches;
+    public IReadOnlyCollection<PluginTreeNode> Branches => _branches;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PluginDependencyTree"/> class.
+    /// Initializes a new instance of the <see cref="PluginTree"/> class.
     /// </summary>
     /// <param name="branches">The dependency branches.</param>
-    public PluginDependencyTree(List<PluginDependencyTreeNode>? branches = null)
+    public PluginTree(List<PluginTreeNode>? branches = null)
     {
-        _branches = branches ?? new List<PluginDependencyTreeNode>();
+        _branches = branches ?? new List<PluginTreeNode>();
     }
 
     /// <summary>
@@ -143,12 +143,12 @@ public sealed class PluginDependencyTree
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async IAsyncEnumerable<Result> WalkAsync
     (
-        Func<PluginDependencyTreeNode, Result> errorFactory,
-        Func<PluginDependencyTreeNode, Task<Result>> preOperation,
-        Func<PluginDependencyTreeNode, Task<Result>>? postOperation = null
+        Func<PluginTreeNode, Result> errorFactory,
+        Func<PluginTreeNode, Task<Result>> preOperation,
+        Func<PluginTreeNode, Task<Result>>? postOperation = null
     )
     {
-        var visitedNodes = new HashSet<PluginDependencyTreeNode>();
+        var visitedNodes = new HashSet<PluginTreeNode>();
         foreach (var branch in _branches)
         {
             await foreach
@@ -173,12 +173,12 @@ public sealed class PluginDependencyTree
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public IEnumerable<Result> Walk
     (
-        Func<PluginDependencyTreeNode, Result> errorFactory,
-        Func<PluginDependencyTreeNode, Result> preOperation,
-        Func<PluginDependencyTreeNode, Result>? postOperation = null
+        Func<PluginTreeNode, Result> errorFactory,
+        Func<PluginTreeNode, Result> preOperation,
+        Func<PluginTreeNode, Result>? postOperation = null
     )
     {
-        var visitedNodes = new HashSet<PluginDependencyTreeNode>();
+        var visitedNodes = new HashSet<PluginTreeNode>();
         return _branches.SelectMany
         (
             branch => WalkNode(branch, visitedNodes, errorFactory, preOperation, postOperation)
@@ -189,7 +189,7 @@ public sealed class PluginDependencyTree
     /// Adds a dependency branch to the tree.
     /// </summary>
     /// <param name="branch">The branch.</param>
-    internal void AddBranch(PluginDependencyTreeNode branch)
+    internal void AddBranch(PluginTreeNode branch)
     {
         if (_branches.Contains(branch))
         {
@@ -201,11 +201,11 @@ public sealed class PluginDependencyTree
 
     private async IAsyncEnumerable<Result> WalkNodeAsync
     (
-        PluginDependencyTreeNode node,
-        ISet<PluginDependencyTreeNode> visitedNodes,
-        Func<PluginDependencyTreeNode, Result> errorFactory,
-        Func<PluginDependencyTreeNode, Task<Result>> preOperation,
-        Func<PluginDependencyTreeNode, Task<Result>>? postOperation = null
+        PluginTreeNode node,
+        ISet<PluginTreeNode> visitedNodes,
+        Func<PluginTreeNode, Result> errorFactory,
+        Func<PluginTreeNode, Task<Result>> preOperation,
+        Func<PluginTreeNode, Task<Result>>? postOperation = null
     )
     {
         if (visitedNodes.Contains(node))
@@ -256,11 +256,11 @@ public sealed class PluginDependencyTree
 
     private IEnumerable<Result> WalkNode
     (
-        PluginDependencyTreeNode node,
-        ISet<PluginDependencyTreeNode> visitedNodes,
-        Func<PluginDependencyTreeNode, Result> errorFactory,
-        Func<PluginDependencyTreeNode, Result> preOperation,
-        Func<PluginDependencyTreeNode, Result>? postOperation = null
+        PluginTreeNode node,
+        ISet<PluginTreeNode> visitedNodes,
+        Func<PluginTreeNode, Result> errorFactory,
+        Func<PluginTreeNode, Result> preOperation,
+        Func<PluginTreeNode, Result>? postOperation = null
     )
     {
         if (visitedNodes.Contains(node))
@@ -308,9 +308,9 @@ public sealed class PluginDependencyTree
 
     private static async IAsyncEnumerable<Result> PerformNodeOperationAsync
     (
-        PluginDependencyTreeNode node,
-        Func<PluginDependencyTreeNode, Result> errorFactory,
-        Func<PluginDependencyTreeNode, Task<Result>> operation
+        PluginTreeNode node,
+        Func<PluginTreeNode, Result> errorFactory,
+        Func<PluginTreeNode, Task<Result>> operation
     )
     {
         Result operationResult;
@@ -337,9 +337,9 @@ public sealed class PluginDependencyTree
 
     private static IEnumerable<Result> PerformNodeOperation
     (
-        PluginDependencyTreeNode node,
-        Func<PluginDependencyTreeNode, Result> errorFactory,
-        Func<PluginDependencyTreeNode, Result> operation
+        PluginTreeNode node,
+        Func<PluginTreeNode, Result> errorFactory,
+        Func<PluginTreeNode, Result> operation
     )
     {
         Result operationResult;
