@@ -28,23 +28,23 @@ public sealed class MyPlugin : PluginDescriptor
     public override string Description => "My plugin that does a thing.";
 
     /// <inheritdoc/>
-    public override ConfigureServices
-    (
-        IServiceCollection serviceCollection
-    )
+    public override Result ConfigureServices(IServiceCollection serviceCollection)
     {
         serviceCollection
             .AddScoped<MyService>();
+
+        return Result.FromSuccess();
     }
 
     /// <inheritdoc />
-    public override async ValueTas<Result> InitializeAsync
-    (
-        IServiceProvider serviceProvider
-    )
+    public override async ValueTas<Result> InitializeAsync(IServiceProvider serviceProvider)
     {
         var myService = serviceProvider.GetRequiredService<MyService>();
-        await myService.DoTheThingAsync();
+        var doThing = await myService.DoTheThingAsync();
+        if (!doThing.IsSuccess)
+        {
+            return doThing;
+        }
 
         return Result.FromSuccess();
     }
