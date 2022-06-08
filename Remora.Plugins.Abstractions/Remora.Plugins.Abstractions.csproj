@@ -2,12 +2,12 @@
 
     <PropertyGroup>
         <TargetFrameworks>netstandard2.1;net6.0</TargetFrameworks>
-        <Version>4.0.3</Version>
+        <Version>4.0.4</Version>
         <Description>
             Abstract representations of a plugin system.
         </Description>
         <PackageReleaseNotes>
-            Update dependencies.
+            Upgrade Remora.Results.
         </PackageReleaseNotes>
         <PackageTags>$(PackageTags);plugin;plugins;dynamic</PackageTags>
     </PropertyGroup>
