@@ -46,10 +46,27 @@ public sealed class PluginService
     /// <summary>
     /// Initializes a new instance of the <see cref="PluginService"/> class.
     /// </summary>
+    public PluginService()
+        : this(new PluginServiceOptions())
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PluginService"/> class.
+    /// </summary>
     /// <param name="options">The service options.</param>
     public PluginService(IOptions<PluginServiceOptions> options)
+        : this(options.Value)
     {
-        _options = options.Value;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PluginService"/> class.
+    /// </summary>
+    /// <param name="options">The service options.</param>
+    public PluginService(PluginServiceOptions options)
+    {
+        _options = options;
     }
 
     /// <summary>
