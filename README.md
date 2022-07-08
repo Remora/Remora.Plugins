@@ -37,7 +37,7 @@ public sealed class MyPlugin : PluginDescriptor
     }
 
     /// <inheritdoc />
-    public override async ValueTas<Result> InitializeAsync(IServiceProvider serviceProvider)
+    public override async ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider)
     {
         var myService = serviceProvider.GetRequiredService<MyService>();
         var doThing = await myService.DoTheThingAsync();
