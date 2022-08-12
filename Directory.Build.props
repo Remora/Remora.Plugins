@@ -29,10 +29,10 @@
         <EmbedAllSources>true</EmbedAllSources>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-        <RepositoryUrl>https://github.com/Nihlus/Remora.Plugins</RepositoryUrl>
-        <RepositoryBranch>master</RepositoryBranch>
+        <RepositoryUrl>https://github.com/Remora/Remora.Plugins</RepositoryUrl>
+        <RepositoryBranch>main</RepositoryBranch>
         <PackageOutputPath>$(MSBuildThisFileDirectory)nuget</PackageOutputPath>
-        <PackageProjectUrl>https://github.com/Nihlus/Remora.Plugins</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/Remora/Remora.Plugins</PackageProjectUrl>
         <PackageTags>remora;plugins;dynamic;</PackageTags>
         <PackageIcon>shark.png</PackageIcon>
         <PackageReadmeFile>README.md</PackageReadmeFile>
