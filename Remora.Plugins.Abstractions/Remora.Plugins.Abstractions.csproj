@@ -1,7 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Remora.Sdk/1.0.0-preview3">
     <PropertyGroup>
-        <TargetFrameworks>netstandard2.1;net6.0</TargetFrameworks>
         <Version>4.0.4</Version>
         <Description>
             Abstract representations of a plugin system.
@@ -16,5 +14,4 @@
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
       <PackageReference Include="Remora.Results" Version="7.2.0" />
     </ItemGroup>
-
 </Project>

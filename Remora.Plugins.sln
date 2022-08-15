@@ -5,16 +5,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "metadata", ".\", "{F1A57014
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
 		README.md = README.md
-		stylecop.json = stylecop.json
-		stylecop.ruleset = stylecop.ruleset
 		Directory.Build.props = Directory.Build.props
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Remora.Plugins", "Remora.Plugins\Remora.Plugins.csproj", "{FC078E85-8757-4813-A0F0-D92D42053488}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Remora.Plugins.Abstractions", "Remora.Plugins.Abstractions\Remora.Plugins.Abstractions.csproj", "{CF9709D0-4A03-4446-8292-8CFEB859075F}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{1891A726-93E5-43DF-90D6-7837E9BD40AE}"
 EndProject
 
 Global
