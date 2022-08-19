@@ -1,6 +1,6 @@
-<Project Sdk="Remora.Sdk/1.0.0-preview6">
+<Project Sdk="Remora.Sdk/1.0.0">
     <PropertyGroup>
-        <Version>4.0.4</Version>
+        <Version>4.0.5</Version>
         <Description>
             Abstract representations of a plugin system.
         </Description>

@@ -1,6 +1,6 @@
-<Project Sdk="Remora.Sdk/1.0.0-preview6">
+<Project Sdk="Remora.Sdk/1.0.0">
     <PropertyGroup>
-        <Version>3.0.4</Version>
+        <Version>3.0.5</Version>
         <Description>
             The default implementation of Remora.Plugins.Abstractions.
         </Description>
