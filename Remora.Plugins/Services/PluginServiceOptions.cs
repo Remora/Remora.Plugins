@@ -20,6 +20,7 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 
+using System;
 using System.Collections.Generic;
 
 namespace Remora.Plugins.Services;
@@ -35,4 +36,11 @@ public record PluginServiceOptions
 (
     IEnumerable<string> PluginSearchPaths,
     bool ScanAssemblyDirectory = true
-);
+)
+{
+    /// <summary>
+    /// Gets a default instance of this <see cref="PluginServiceOptions"/> which searches
+    /// the assembly directory.
+    /// </summary>
+    public static PluginServiceOptions Default { get; } = new PluginServiceOptions(Array.Empty<string>());
+}

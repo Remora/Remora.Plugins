@@ -29,7 +29,6 @@ using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
 using Remora.Plugins.Abstractions;
-using Remora.Plugins.Errors;
 using Remora.Results;
 
 namespace Remora.Plugins;
@@ -37,25 +36,20 @@ namespace Remora.Plugins;
 /// <summary>
 /// Represents a tree of plugins, ordered by their dependencies.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="PluginTree"/> class.
+/// </remarks>
+/// <param name="branches">The dependency branches.</param>
 [PublicAPI]
-public sealed class PluginTree
+public sealed class PluginTree(List<PluginTreeNode>? branches = null)
 {
-    private readonly List<PluginTreeNode> _branches;
+    private readonly List<PluginTreeNode> _branches = branches ?? new();
 
     /// <summary>
     /// Gets the root nodes of the identified plugin dependency branches. The root node is considered to be the
     /// application itself, which is implicitly initialized.
     /// </summary>
     public IReadOnlyCollection<PluginTreeNode> Branches => _branches;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PluginTree"/> class.
-    /// </summary>
-    /// <param name="branches">The dependency branches.</param>
-    public PluginTree(List<PluginTreeNode>? branches = null)
-    {
-        _branches = branches ?? new List<PluginTreeNode>();
-    }
 
     /// <summary>
     /// Configures the services required by the plugins.

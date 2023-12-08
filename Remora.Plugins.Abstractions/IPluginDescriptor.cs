@@ -21,6 +21,7 @@
 //
 
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
@@ -48,14 +49,14 @@ public interface IPluginDescriptor
     /// <summary>
     /// Gets the version of the plugin.
     /// </summary>
-    Version Version { get; }
+    Version Version => Assembly.GetAssembly(GetType())?.GetName().Version ?? new Version(1, 0, 0);
 
     /// <summary>
     /// Configures services provided by the plugin in the application's service collection.
     /// </summary>
     /// <param name="serviceCollection">The service collection.</param>
-    /// <returns>A result that may or may not have succeeded.</returns>
-    Result ConfigureServices(IServiceCollection serviceCollection);
+    /// <returns>The servicer collection, for chaining.</returns>
+    static virtual IServiceCollection ConfigureServices(IServiceCollection serviceCollection) => serviceCollection;
 
     /// <summary>
     /// Performs any post-registration initialization required by the plugin.

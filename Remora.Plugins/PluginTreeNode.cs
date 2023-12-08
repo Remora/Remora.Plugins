@@ -30,35 +30,28 @@ namespace Remora.Plugins;
 /// <summary>
 /// Represents a node in a dependency tree.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="PluginTreeNode"/> class.
+/// </remarks>
+/// <param name="plugin">The plugin.</param>
+/// <param name="dependants">The dependants.</param>
 [PublicAPI]
-public sealed class PluginTreeNode
+public sealed class PluginTreeNode(
+    IPluginDescriptor plugin,
+    List<PluginTreeNode>? dependants = null
+    )
 {
-    private readonly List<PluginTreeNode> _dependents;
+    private readonly List<PluginTreeNode> _dependents = dependants ?? new();
 
     /// <summary>
     /// Gets the plugin.
     /// </summary>
-    public IPluginDescriptor Plugin { get; }
+    public IPluginDescriptor Plugin { get; } = plugin;
 
     /// <summary>
     /// Gets the nodes that depend on this plugin.
     /// </summary>
     public IReadOnlyCollection<PluginTreeNode> Dependents => _dependents;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PluginTreeNode"/> class.
-    /// </summary>
-    /// <param name="plugin">The plugin.</param>
-    /// <param name="dependants">The dependants.</param>
-    public PluginTreeNode
-    (
-        IPluginDescriptor plugin,
-        List<PluginTreeNode>? dependants = null
-    )
-    {
-        this.Plugin = plugin;
-        _dependents = dependants ?? new List<PluginTreeNode>();
-    }
 
     /// <summary>
     /// Adds a dependant to this node.
@@ -94,6 +87,6 @@ public sealed class PluginTreeNode
     /// <inheritdoc/>
     public override string ToString()
     {
-        return $"{this.Plugin} => ({string.Join(", ", _dependents.Select(d => d.Plugin))})";
+        return $"{this.Plugin} => ({string.Join(", ", _dependents.Select(d => d.Plugin.ToString()))})";
     }
 }
