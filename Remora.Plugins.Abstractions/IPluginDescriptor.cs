@@ -51,12 +51,14 @@ public interface IPluginDescriptor
     /// </summary>
     Version Version => Assembly.GetAssembly(GetType())?.GetName().Version ?? new Version(1, 0, 0);
 
+#if NET8_0_OR_GREATER
     /// <summary>
     /// Configures services provided by the plugin in the application's service collection.
     /// </summary>
     /// <param name="serviceCollection">The service collection.</param>
     /// <returns>The servicer collection, for chaining.</returns>
     static virtual IServiceCollection ConfigureServices(IServiceCollection serviceCollection) => serviceCollection;
+#endif
 
     /// <summary>
     /// Performs any post-registration initialization required by the plugin.

@@ -46,68 +46,6 @@ public sealed class PluginService(IOptions<PluginServiceOptions>? options = null
 {
     private readonly PluginServiceOptions _options = options?.Value ?? PluginServiceOptions.Default;
 
-    [PublicAPI, Pure]
-    public void SetupPlugins(IServiceCollection services)
-    {
-        IEnumerable<Assembly> pluginAssemblies = FindPluginAssemblies();
-        var pluginsWithDependencies = pluginAssemblies.ToDictionary
-        (
-            a => a,
-            a => a.GetReferencedAssemblies()
-                .Where(ra => pluginAssemblies.Any(pa => pa.FullName == ra.FullName))
-                .Select(ra => pluginAssemblies.First(pa => pa.FullName == ra.FullName))
-                .Select(ra => ra)
-        );
-
-        bool IsDependency(Assembly assembly, Assembly other)
-        {
-            var dependencies = pluginsWithDependencies[assembly];
-            foreach (var dependency in dependencies)
-            {
-                if (dependency == other)
-                {
-                    return true;
-                }
-
-                if (IsDependency(dependency, other))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        var tree = new PluginTree();
-        var nodes = new Dictionary<Assembly, PluginTreeNode>();
-
-        var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
-
-        // TODO: Accept ISerivceProvider to create plugin descriptors.
-        // TODO: Allow for multiple plugin descriptors per assembly.
-        while (sorted.Count > 0)
-        {
-            Assembly? current = sorted[0];
-
-            if (current is null)
-            {
-                continue;
-            }
-
-            var plugins = current.GetExportedTypes().Where(it => it.IsAssignableTo(typeof(IPluginDescriptor)) && !it.IsAbstract && !it.IsInterface);
-
-            foreach (var type in current.GetExportedTypes().Where(it =>
-                it.IsAssignableTo(typeof(IPluginDescriptor)) &&
-                !it.IsAbstract &&
-                !it.IsInterface
-            ))
-            {
-                var map = type.GetInterfaceMap(typeof(IPluginDescriptor));
-                map.TargetMethods.FirstOrDefault(x => x.Name == nameof(IPluginDescriptor.ConfigureServices))?.Invoke(null, new[] { services });
-            }
-        }
-        }
-
     /// <summary>
     /// Loads all available plugins into a tree structure, ordered by their topological dependencies. Effectively, this
     /// means that <see cref="PluginTree.Branches"/> will contain dependency-free plugins, with subsequent
@@ -125,33 +63,32 @@ public sealed class PluginService(IOptions<PluginServiceOptions>? options = null
         }
 
         var loadDescriptorResult = LoadPluginDescriptor(current);
-            if (!loadDescriptorResult.IsSuccess)
+        if (!loadDescriptorResult.IsSuccess)
+        {
+            continue;
+        }
+
+        var node = new PluginTreeNode(loadDescriptorResult.Entity);
+        var dependencies = pluginsWithDependencies[current].ToList();
+        if (!dependencies.Any())
+        {
+            // This is a root of a chain
+            tree.AddBranch(node);
+        }
+
+        foreach (var dependency in dependencies)
+        {
+            if (!IsDirectDependency(current, dependency))
             {
                 continue;
             }
 
-            var node = new PluginTreeNode(loadDescriptorResult.Entity);
-            var dependencies = pluginsWithDependencies[current].ToList();
-            if (!dependencies.Any())
-            {
-                // This is a root of a chain
-                tree.AddBranch(node);
-            }
-
-            foreach (var dependency in dependencies)
-            {
-                if (!IsDirectDependency(current, dependency))
-                {
-                    continue;
-                }
-
-                var dependencyNode = nodes[dependency];
-                dependencyNode.AddDependent(node);
-            }
-
-            nodes.Add(current, node);
-            sorted.Remove(current);
+            var dependencyNode = nodes[dependency];
+            dependencyNode.AddDependent(node);
         }
+
+        nodes.Add(current, node);
+        sorted.Remove(current);
 
         return tree;
     }

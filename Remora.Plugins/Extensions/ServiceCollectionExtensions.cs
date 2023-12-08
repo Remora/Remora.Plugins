@@ -108,7 +108,9 @@ namespace Remora.Plugins.Extensions
                 }
 
                 var configureHelper = typeof(ServiceCollectionExtensions).GetMethod(nameof(ConfigurePlugin));
-                var plugins = current.GetExportedTypes().Where(it => it.IsAssignableTo(typeof(IPluginDescriptor)) && !it.IsAbstract && !it.IsInterface);
+
+                // This uses IsAssignableFrom because the .NET Standard target does not have IsAssignableTo().
+                var plugins = current.GetExportedTypes().Where(it => typeof(IPluginDescriptor).IsAssignableFrom(it) && !it.IsAbstract && !it.IsInterface);
 
                 // For each plugin in assembly
                 foreach (var plugin in plugins)
@@ -121,9 +123,24 @@ namespace Remora.Plugins.Extensions
             return services;
         }
 
+#if NET8_0_OR_GREATER
         private static IServiceCollection ConfigurePlugin<TPluginDescriptor>(IServiceCollection serviceCollection)
             where TPluginDescriptor : IPluginDescriptor
             => TPluginDescriptor.ConfigureServices(serviceCollection);
+#else
+        private static IServiceCollection ConfigurePlugin<TPluginDescriptor>(IServiceCollection serviceCollection)
+            where TPluginDescriptor : IPluginDescriptor
+        {
+            const string ConfigureServicesMethodName = "ConfigureServices";
+#pragma warning disable SA1010 // Opening square brackets should be spaced correctly
+            var configure = typeof(TPluginDescriptor).GetMethod(ConfigureServicesMethodName, BindingFlags.Static | BindingFlags.Public, null, [typeof(IServiceCollection)], []);
+
+            return configure is null
+                ? serviceCollection
+                : (IServiceCollection)configure.Invoke(null, [serviceCollection]);
+#pragma warning restore SA1010 // Opening square brackets should be spaced correctly
+        }
+#endif
 
         /// <summary>
         /// Finds available plugin assemblies.

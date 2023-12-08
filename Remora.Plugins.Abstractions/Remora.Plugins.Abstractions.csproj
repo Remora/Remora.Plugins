@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Remora.Sdk">
     <PropertyGroup>
         <VersionPrefix>5.0.0</VersionPrefix>
-		<LibraryFrameworks>Net8.0</LibraryFrameworks>
         <Description>
             Abstract representations of a plugin system.
         </Description>
