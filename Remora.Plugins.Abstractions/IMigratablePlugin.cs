@@ -37,8 +37,7 @@ public interface IMigratablePlugin : IPluginDescriptor
     /// <summary>
     /// Performs any migrations required by the plugin.
     /// </summary>
-    /// <param name="serviceProvider">The available services.</param>
     /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<Result> MigrateAsync(IServiceProvider serviceProvider, CancellationToken ct = default);
+    Task<Result> MigrateAsync(CancellationToken ct = default);
 }

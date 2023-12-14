@@ -75,28 +75,6 @@ namespace Remora.Plugins.Extensions
                     .Select(ra => ra) // Iterate assemblies
             );
 
-            bool IsDependency(Assembly assembly, Assembly other)
-            {
-                var dependencies = pluginsWithDependencies[assembly];
-                foreach (var dependency in dependencies)
-                {
-                    if (dependency == other)
-                    {
-                        return true;
-                    }
-
-                    if (IsDependency(dependency, other))
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            var tree = new PluginTree();
-            var nodes = new Dictionary<Assembly, PluginTreeNode>();
-
             var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
 
             // For each assembly
@@ -120,6 +98,8 @@ namespace Remora.Plugins.Extensions
                 }
             }
 
+            services.TryAddSingleton<PluginService>();
+
             return services;
         }
 
@@ -128,18 +108,19 @@ namespace Remora.Plugins.Extensions
             where TPluginDescriptor : IPluginDescriptor
             => TPluginDescriptor.ConfigureServices(serviceCollection);
 #else
+#pragma warning disable SA1010 // Opening square brackets should be spaced correctly
         private static IServiceCollection ConfigurePlugin<TPluginDescriptor>(IServiceCollection serviceCollection)
             where TPluginDescriptor : IPluginDescriptor
         {
             const string ConfigureServicesMethodName = "ConfigureServices";
-#pragma warning disable SA1010 // Opening square brackets should be spaced correctly
+
             var configure = typeof(TPluginDescriptor).GetMethod(ConfigureServicesMethodName, BindingFlags.Static | BindingFlags.Public, null, [typeof(IServiceCollection)], []);
 
             return configure is null
                 ? serviceCollection
-                : (IServiceCollection)configure.Invoke(null, [serviceCollection]);
-#pragma warning restore SA1010 // Opening square brackets should be spaced correctly
+                : (IServiceCollection)configure.Invoke(null, [serviceCollection])!;
         }
+#pragma warning restore SA1010 // Opening square brackets should be spaced correctly
 #endif
 
         /// <summary>

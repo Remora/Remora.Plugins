@@ -63,8 +63,7 @@ public interface IPluginDescriptor
     /// <summary>
     /// Performs any post-registration initialization required by the plugin.
     /// </summary>
-    /// <param name="serviceProvider">The service provider.</param>
     /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result that may or may not have succeeded.</returns>
-    ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider, CancellationToken ct = default);
+    ValueTask<Result> InitializeAsync(CancellationToken ct = default);
 }

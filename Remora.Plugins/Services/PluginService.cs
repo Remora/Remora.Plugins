@@ -22,15 +22,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Remora.Plugins.Abstractions;
-using Remora.Plugins.Abstractions.Attributes;
-using Remora.Plugins.Extensions;
+using Remora.Results;
 
 namespace Remora.Plugins.Services;
 
@@ -40,154 +38,68 @@ namespace Remora.Plugins.Services;
 /// <remarks>
 /// Initializes a new instance of the <see cref="PluginService"/> class.
 /// </remarks>
+/// <param name="serviceProvider">The service provider where plugins are stored.</param>
 /// <param name="options">The service options.</param>
 [PublicAPI]
-public sealed class PluginService(IOptions<PluginServiceOptions>? options = null)
+public sealed class PluginService(IServiceProvider serviceProvider)
+    : IAsyncDisposable, IDisposable
 {
-    private readonly PluginServiceOptions _options = options?.Value ?? PluginServiceOptions.Default;
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
+
+    private readonly List<IPluginDescriptor> _plugins = new();
 
     /// <summary>
-    /// Loads all available plugins into a tree structure, ordered by their topological dependencies. Effectively, this
-    /// means that <see cref="PluginTree.Branches"/> will contain dependency-free plugins, with subsequent
-    /// dependents below them (recursively).
+    /// Iterates through each plugin, initializes them, and executes <see cref="IPluginDescriptor.InitializeAsync(CancellationToken)"/>.
     /// </summary>
-    /// <param name="services">The <see cref="IServiceCollection"/> used to register services.</param>
-    /// <returns>The dependency tree.</returns>
-    [PublicAPI, Pure]
-    public PluginTree LoadPluginTree(IServiceCollection services)
+    /// <param name="ct">A cancellation token for this operation.</param>
+    /// <returns>A set of results indicating success or failure of each initialize operation.</returns>
+    public async ValueTask<IReadOnlyList<Result>> InitializePluginsAsync(CancellationToken ct = default)
     {
-        bool IsDirectDependency(Assembly assembly, Assembly dependency)
-        {
-            var dependencies = pluginsWithDependencies[assembly];
-            return IsDependency(assembly, dependency) && dependencies.All(d => !IsDependency(d, dependency));
-        }
+        var plugins = _serviceProvider.GetServices<IPluginDescriptor>();
 
-        var loadDescriptorResult = LoadPluginDescriptor(current);
-        if (!loadDescriptorResult.IsSuccess)
-        {
-            continue;
-        }
+        List<Result> results = new();
 
-        var node = new PluginTreeNode(loadDescriptorResult.Entity);
-        var dependencies = pluginsWithDependencies[current].ToList();
-        if (!dependencies.Any())
+        foreach (var plugin in plugins)
         {
-            // This is a root of a chain
-            tree.AddBranch(node);
-        }
-
-        foreach (var dependency in dependencies)
-        {
-            if (!IsDirectDependency(current, dependency))
+            var pluginResult = await plugin.InitializeAsync(ct);
+            if (pluginResult.IsSuccess)
             {
-                continue;
+                _plugins.Add(plugin);
             }
-
-            var dependencyNode = nodes[dependency];
-            dependencyNode.AddDependent(node);
+            results.Add(pluginResult);
         }
 
-        nodes.Add(current, node);
-        sorted.Remove(current);
-
-        return tree;
+        return results.AsReadOnly();
     }
 
     /// <summary>
-    /// Loads all available plugins into a flat list.
+    /// Iterates through initialized plugins and applies migrations where appropriate.
     /// </summary>
-    /// <remarks>
-    /// This method should generally not be used for actually loading plugins into your application, since it may not
-    /// properly order plugins in more complex dependency graphs. Prefer using <see cref="LoadPluginTree"/> and its
-    /// associated methods.
-    /// </remarks>
-    /// <returns>The descriptors of the available plugins.</returns>
-    [Pure]
-    public IEnumerable<IPluginDescriptor> LoadPlugins()
+    /// <param name="ct">A cancellation token for this operation.</param>
+    /// <returns>A set of results indicating success or failure of each initialize operation.</returns>
+    public async ValueTask<IReadOnlyList<Result>> MigratePluginsAsync(CancellationToken ct = default)
     {
-        var pluginAssemblies = LoadAvailablePluginAssemblies().ToList();
-        var sorted = pluginAssemblies.TopologicalSort
-        (
-            a => a.PluginAssembly.GetReferencedAssemblies()
-                .Where
-                (
-                    n => pluginAssemblies.Any(pa => pa.PluginAssembly.GetName().FullName == n.FullName)
-                )
-                .Select
-                (
-                    n => pluginAssemblies.First(pa => pa.PluginAssembly.GetName().FullName == n.FullName)
-                )
-        );
+        List<Result> results = new();
 
-        foreach (var pluginAssembly in sorted)
+        foreach (var plugin in _plugins)
         {
-            var descriptor = (IPluginDescriptor?)Activator.CreateInstance
-            (
-                pluginAssembly.PluginAttribute.PluginDescriptor
-            );
-
-            if (descriptor is null)
+            if (typeof(IMigratablePlugin).IsAssignableFrom(plugin.GetType()))
             {
-                continue;
+                results.Add(await (plugin as IMigratablePlugin)!.MigrateAsync(ct));
             }
-
-            yield return descriptor;
         }
+        return results.AsReadOnly();
     }
 
-    /// <summary>
-    /// Finds available plugin assemblies.
-    /// </summary>
-    /// <returns>The available assemblies.</returns>
-    [Pure]
-    private IEnumerable<Assembly> FindPluginAssemblies()
+    /// <inheritdoc/>
+    public void Dispose()
     {
-        var searchPaths = new List<string>();
+        throw new NotImplementedException();
+    }
 
-        if (_options.ScanAssemblyDirectory)
-        {
-            var entryAssemblyPath = Assembly.GetEntryAssembly()?.Location;
-
-            if (entryAssemblyPath is not null)
-            {
-                var installationDirectory = Directory.GetParent(entryAssemblyPath)
-                                            ?? throw new InvalidOperationException();
-
-                searchPaths.Add(installationDirectory.FullName);
-            }
-        }
-
-        searchPaths.AddRange(_options.PluginSearchPaths);
-
-        var assemblyPaths = searchPaths.Select
-        (
-            searchPath => Directory.EnumerateFiles
-            (
-                searchPath,
-                "*.dll",
-                SearchOption.AllDirectories
-            )
-        ).SelectMany(a => a);
-
-        foreach (var assemblyPath in assemblyPaths)
-        {
-            Assembly assembly;
-            try
-            {
-                assembly = Assembly.LoadFrom(assemblyPath);
-            }
-            catch
-            {
-                continue;
-            }
-
-            var pluginAttribute = assembly.GetCustomAttribute<RemoraPluginAttribute>();
-            if (pluginAttribute is null)
-            {
-                continue;
-            }
-
-            yield return assembly;
-        }
+    /// <inheritdoc/>
+    public ValueTask DisposeAsync()
+    {
+        throw new NotImplementedException();
     }
 }
