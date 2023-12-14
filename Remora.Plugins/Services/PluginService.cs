@@ -39,7 +39,6 @@ namespace Remora.Plugins.Services;
 /// Initializes a new instance of the <see cref="PluginService"/> class.
 /// </remarks>
 /// <param name="serviceProvider">The service provider where plugins are stored.</param>
-/// <param name="options">The service options.</param>
 [PublicAPI]
 public sealed class PluginService(IServiceProvider serviceProvider)
 {
