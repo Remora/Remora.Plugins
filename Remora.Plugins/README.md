@@ -17,7 +17,7 @@ Generally, plugins should only reference Remora.Plugins.Abstractions, while the
 main application should reference and use Remora.Plugins.
 
 ```c#
-[assembly: RemoraPlugin(typeof(MyPlugin))]
+[assembly: RemoraPlugin]
 
 public sealed class MyPlugin(MyService myService) : PluginDescriptor
 {
