@@ -66,6 +66,7 @@ namespace Remora.Plugins.Extensions
         {
             var pluginOptions = options ?? PluginServiceOptions.Default;
             IEnumerable<Assembly> pluginAssemblies = FindPluginAssemblies(pluginOptions);
+            /*
             var pluginsWithDependencies = pluginAssemblies.ToDictionary
             (
                 a => a,
@@ -79,6 +80,8 @@ namespace Remora.Plugins.Extensions
 
             // For each assembly
             foreach (var current in sorted)
+            */
+            foreach (var current in pluginAssemblies)
             {
                 if (current is null)
                 {
