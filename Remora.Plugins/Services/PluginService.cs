@@ -42,7 +42,6 @@ namespace Remora.Plugins.Services;
 /// <param name="options">The service options.</param>
 [PublicAPI]
 public sealed class PluginService(IServiceProvider serviceProvider)
-    : IAsyncDisposable, IDisposable
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
 
@@ -89,17 +88,5 @@ public sealed class PluginService(IServiceProvider serviceProvider)
             }
         }
         return results.AsReadOnly();
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <inheritdoc/>
-    public ValueTask DisposeAsync()
-    {
-        throw new NotImplementedException();
     }
 }
