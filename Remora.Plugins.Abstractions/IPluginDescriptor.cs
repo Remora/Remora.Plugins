@@ -21,6 +21,7 @@
 //
 
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
@@ -48,20 +49,21 @@ public interface IPluginDescriptor
     /// <summary>
     /// Gets the version of the plugin.
     /// </summary>
-    Version Version { get; }
+    Version Version => Assembly.GetAssembly(GetType())?.GetName().Version ?? new Version(1, 0, 0);
 
+#if NET8_0_OR_GREATER
     /// <summary>
     /// Configures services provided by the plugin in the application's service collection.
     /// </summary>
     /// <param name="serviceCollection">The service collection.</param>
-    /// <returns>A result that may or may not have succeeded.</returns>
-    Result ConfigureServices(IServiceCollection serviceCollection);
+    /// <returns>The service collection, for chaining.</returns>
+    static virtual IServiceCollection ConfigureServices(IServiceCollection serviceCollection) => serviceCollection;
+#endif
 
     /// <summary>
     /// Performs any post-registration initialization required by the plugin.
     /// </summary>
-    /// <param name="serviceProvider">The service provider.</param>
     /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result that may or may not have succeeded.</returns>
-    ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider, CancellationToken ct = default);
+    ValueTask<Result> InitializeAsync(CancellationToken ct = default);
 }

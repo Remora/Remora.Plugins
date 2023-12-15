@@ -17,9 +17,9 @@ Generally, plugins should only reference Remora.Plugins.Abstractions, while the
 main application should reference and use Remora.Plugins.
 
 ```c#
-[assembly: RemoraPlugin(typeof(MyPlugin))]
+[assembly: RemoraPlugin]
 
-public sealed class MyPlugin : PluginDescriptor
+public sealed class MyPlugin(MyService myService) : PluginDescriptor
 {
     /// <inheritdoc />
     public override string Name => "My Plugin";
@@ -28,18 +28,16 @@ public sealed class MyPlugin : PluginDescriptor
     public override string Description => "My plugin that does a thing.";
 
     /// <inheritdoc/>
-    public override Result ConfigureServices(IServiceCollection serviceCollection)
+    public static override IServiceCollection ConfigureServices(IServiceCollection serviceCollection)
     {
-        serviceCollection
-            .AddScoped<MyService>();
+        serviceCollection.AddScoped<MyService>();
 
-        return Result.FromSuccess();
+        return serviceCollection;
     }
 
     /// <inheritdoc />
     public override async ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider)
     {
-        var myService = serviceProvider.GetRequiredService<MyService>();
         var doThing = await myService.DoTheThingAsync();
         if (!doThing.IsSuccess)
         {
@@ -55,29 +53,23 @@ Loading plugins in your application is equally simple. The example below is
 perhaps a little convoluted, but shows the flexibility of the system.
 
 ```c#
-var pluginService = new PluginService();
+var pluginServiceOptions = PluginServiceOptions.Default;
 
 var serviceCollection = new ServiceCollection()
-    .AddSingleton(pluginService);
-
-var pluginTree = pluginService.LoadPluginTree();
-var configurePlugins = pluginTree.ConfigureServices(serviceCollection);
-if (!configurePlugins.IsSuccess)
-{
-    // check configurePlugins.Error to figure out why
-    return;
-}
+    .AddPlugins(pluginServiceOptions);
 
 _services = serviceCollection.BuildServiceProvider();
 
-var initializePlugins = await pluginTree.InitializeAsync(_services, ct);
+var pluginService = _services.GetRequiredService<PluginService>();
+
+var initializePlugins = await pluginService.InitializePluginsAsync(_services, ct);
 if (!initializePlugins.IsSuccess)
 {
     // check initializePlugins.Error to figure out why
     return;
 }
 
-var migratePlugins = await pluginTree.MigrateAsync(_services, ct);
+var migratePlugins = await pluginService.MigratePluginsAsync(_services, ct);
 if (!migratePlugins.IsSuccess)
 {
     // check migratePlugins.Error to figure out why

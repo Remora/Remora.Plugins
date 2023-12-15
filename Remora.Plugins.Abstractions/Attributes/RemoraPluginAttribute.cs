@@ -1,5 +1,5 @@
 //
-//  RemoraPlugin.cs
+//  RemoraPluginAttribute.cs
 //
 //  Author:
 //       Jarl Gullberg <jarl.gullberg@gmail.com>
@@ -29,21 +29,9 @@ namespace Remora.Plugins.Abstractions.Attributes;
 /// Represents an attribute that can be applied to an assembly in order to mark it as an assembly containing a
 /// plugin.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="RemoraPluginAttribute"/> class.
+/// </remarks>
 [PublicAPI]
 [AttributeUsage(AttributeTargets.Assembly)]
-public sealed class RemoraPlugin : Attribute
-{
-    /// <summary>
-    /// Gets the plugin descriptor that the assembly exports.
-    /// </summary>
-    public Type PluginDescriptor { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RemoraPlugin"/> class.
-    /// </summary>
-    /// <param name="pluginDescriptor">The descriptor type.</param>
-    public RemoraPlugin(Type pluginDescriptor)
-    {
-        this.PluginDescriptor = pluginDescriptor;
-    }
-}
+public sealed class RemoraPluginAttribute : Attribute;
