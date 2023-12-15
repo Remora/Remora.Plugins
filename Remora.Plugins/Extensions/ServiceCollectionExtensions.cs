@@ -33,8 +33,8 @@ using Remora.Plugins.Abstractions;
 using Remora.Plugins.Abstractions.Attributes;
 using Remora.Plugins.Services;
 
-// Fixes StyleCop bug with list syntax initializer. Fix merged, just waiting on
-// new package release from the StyleCopAnalyzers package.
+// Fixes StyleCop compatibility issue with the list syntax initializer.
+// Fix merged, just waiting on new StyleCopAnalyzers package release.
 // See: https://github.com/DotNetAnalyzers/StyleCopAnalyzers/pull/3745
 #pragma warning disable SA1010 // Opening square brackets should be spaced correctly
 
