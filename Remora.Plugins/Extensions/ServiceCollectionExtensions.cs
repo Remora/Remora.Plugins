@@ -78,13 +78,12 @@ namespace Remora.Plugins.Extensions
                 a => a.GetReferencedAssemblies()
                     .Where(ra => pluginAssemblies.Any(pa => pa.FullName == ra.FullName)) // Retrieve AssemblyNames where the Assembly is a Plugin Assembly.
                     .Select(ra => pluginAssemblies.First(pa => pa.FullName == ra.FullName)) // Get Assemblies based on the filtered names.
-                    .Select(ra => ra) // Iterate assemblies
+                    .Select(ra => ra) // Flatten.
             );
 
             var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
             */
 
-            // For each assembly
             // current is never null here.
             foreach (Assembly current in pluginAssemblies)
             {
