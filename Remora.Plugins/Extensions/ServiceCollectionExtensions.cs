@@ -33,6 +33,11 @@ using Remora.Plugins.Abstractions;
 using Remora.Plugins.Abstractions.Attributes;
 using Remora.Plugins.Services;
 
+// Fixes StyleCop bug with list syntax initializer. Fix merged, just waiting on
+// new package release from the StyleCopAnalyzers package.
+// See: https://github.com/DotNetAnalyzers/StyleCopAnalyzers/pull/3745
+#pragma warning disable SA1010 // Opening square brackets should be spaced correctly
+
 namespace Remora.Plugins.Extensions
 {
     /// <summary>
@@ -50,7 +55,7 @@ namespace Remora.Plugins.Extensions
         [PublicAPI]
         public static IServiceCollection AddPlugins(this IServiceCollection services, IOptions<PluginServiceOptions>? options = null)
         {
-            var pluginOptions = options?.Value ?? PluginServiceOptions.Default;
+            PluginServiceOptions pluginOptions = options?.Value ?? PluginServiceOptions.Default;
             return AddPlugins(services, pluginOptions);
         }
 
@@ -64,7 +69,7 @@ namespace Remora.Plugins.Extensions
         [PublicAPI]
         public static IServiceCollection AddPlugins(this IServiceCollection services, PluginServiceOptions? options = null)
         {
-            var pluginOptions = options ?? PluginServiceOptions.Default;
+            PluginServiceOptions pluginOptions = options ?? PluginServiceOptions.Default;
             IEnumerable<Assembly> pluginAssemblies = FindPluginAssemblies(pluginOptions);
             /*
             var pluginsWithDependencies = pluginAssemblies.ToDictionary
@@ -77,28 +82,29 @@ namespace Remora.Plugins.Extensions
             );
 
             var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
+            */
 
             // For each assembly
-            foreach (var current in sorted)
-            */
-            foreach (var current in pluginAssemblies)
+            // current is never null here.
+            foreach (Assembly current in pluginAssemblies)
             {
-                if (current is null)
-                {
-                    continue;
-                }
-
                 var configureHelper = typeof(ServiceCollectionExtensions).GetMethod(nameof(ConfigurePlugin));
 
-                // This uses IsAssignableFrom because the .NET Standard target does not have IsAssignableTo().
-                var plugins = current.GetExportedTypes().Where(it => typeof(IPluginDescriptor).IsAssignableFrom(it) && !it.IsAbstract && !it.IsInterface);
+                var plugins = current.GetExportedTypes().Where(IsPlugin);
 
                 // For each plugin in assembly
                 foreach (var plugin in plugins)
                 {
-                    configureHelper!.MakeGenericMethod(plugin).Invoke(null, new[] { services });
+                    configureHelper!.MakeGenericMethod(plugin).Invoke(null, [services]);
                     services.TryAddSingleton(plugin);
                 }
+
+                continue;
+
+                // This uses IsAssignableFrom because the .NET Standard target does not have IsAssignableTo().
+                static bool IsPlugin(Type type)
+                    => typeof(IPluginDescriptor).IsAssignableFrom(type) &&
+                        type is { IsAbstract: false, IsInterface: false };
             }
 
             services.TryAddSingleton<PluginService>();
@@ -111,19 +117,25 @@ namespace Remora.Plugins.Extensions
             where TPluginDescriptor : IPluginDescriptor
             => TPluginDescriptor.ConfigureServices(serviceCollection);
 #else
-#pragma warning disable SA1010 // Opening square brackets should be spaced correctly
         private static IServiceCollection ConfigurePlugin<TPluginDescriptor>(IServiceCollection serviceCollection)
             where TPluginDescriptor : IPluginDescriptor
         {
-            const string ConfigureServicesMethodName = "ConfigureServices";
+            const string configureServicesMethodName = "ConfigureServices";
 
-            var configure = typeof(TPluginDescriptor).GetMethod(ConfigureServicesMethodName, BindingFlags.Static | BindingFlags.Public, null, [typeof(IServiceCollection)], []);
+            MethodInfo? configure = typeof(TPluginDescriptor)
+                .GetMethod
+                (
+                    configureServicesMethodName,
+                    bindingAttr: BindingFlags.Static | BindingFlags.Public,
+                    binder: null,
+                    [typeof(IServiceCollection)],
+                    []
+                );
 
             return configure is null
                 ? serviceCollection
                 : (IServiceCollection)configure.Invoke(null, [serviceCollection])!;
         }
-#pragma warning restore SA1010 // Opening square brackets should be spaced correctly
 #endif
 
         /// <summary>

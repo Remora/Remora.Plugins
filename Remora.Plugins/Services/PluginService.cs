@@ -26,7 +26,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Remora.Plugins.Abstractions;
 using Remora.Results;
 
@@ -42,8 +41,6 @@ namespace Remora.Plugins.Services;
 [PublicAPI]
 public sealed class PluginService(IServiceProvider serviceProvider)
 {
-    private readonly IServiceProvider _serviceProvider = serviceProvider;
-
     private readonly List<IPluginDescriptor> _plugins = new();
 
     /// <summary>
@@ -53,7 +50,7 @@ public sealed class PluginService(IServiceProvider serviceProvider)
     /// <returns>A set of results indicating success or failure of each initialize operation.</returns>
     public async ValueTask<IReadOnlyList<Result>> InitializePluginsAsync(CancellationToken ct = default)
     {
-        var plugins = _serviceProvider.GetServices<IPluginDescriptor>();
+        var plugins = serviceProvider.GetServices<IPluginDescriptor>();
 
         List<Result> results = new();
 
@@ -81,9 +78,9 @@ public sealed class PluginService(IServiceProvider serviceProvider)
 
         foreach (var plugin in _plugins)
         {
-            if (typeof(IMigratablePlugin).IsAssignableFrom(plugin.GetType()))
+            if (plugin is IMigratablePlugin migratablePlugin)
             {
-                results.Add(await (plugin as IMigratablePlugin)!.MigrateAsync(ct));
+                results.Add(await migratablePlugin.MigrateAsync(ct));
             }
         }
         return results.AsReadOnly();

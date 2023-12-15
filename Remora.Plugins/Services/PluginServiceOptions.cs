@@ -42,5 +42,5 @@ public record PluginServiceOptions
     /// Gets a default instance of this <see cref="PluginServiceOptions"/> which searches
     /// the assembly directory.
     /// </summary>
-    public static PluginServiceOptions Default { get; } = new PluginServiceOptions(Array.Empty<string>());
+    public static PluginServiceOptions Default { get; } = new(Array.Empty<string>());
 }

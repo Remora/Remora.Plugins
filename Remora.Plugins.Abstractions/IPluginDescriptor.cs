@@ -56,7 +56,7 @@ public interface IPluginDescriptor
     /// Configures services provided by the plugin in the application's service collection.
     /// </summary>
     /// <param name="serviceCollection">The service collection.</param>
-    /// <returns>The servicer collection, for chaining.</returns>
+    /// <returns>The service collection, for chaining.</returns>
     static virtual IServiceCollection ConfigureServices(IServiceCollection serviceCollection) => serviceCollection;
 #endif
 
