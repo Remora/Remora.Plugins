@@ -41,7 +41,7 @@ namespace Remora.Plugins.Services;
 [PublicAPI]
 public sealed class PluginService(IServiceProvider serviceProvider)
 {
-    private readonly List<IPluginDescriptor> _plugins = new();
+    private readonly Dictionary<string, IPluginDescriptor> _plugins = new();
 
     /// <summary>
     /// Iterates through each plugin, initializes them, and executes <see cref="IPluginDescriptor.InitializeAsync(CancellationToken)"/>.
@@ -59,7 +59,7 @@ public sealed class PluginService(IServiceProvider serviceProvider)
             var pluginResult = await plugin.InitializeAsync(ct);
             if (pluginResult.IsSuccess)
             {
-                _plugins.Add(plugin);
+                _plugins.Add(plugin.Name, plugin);
             }
             results.Add(pluginResult);
         }
@@ -76,7 +76,7 @@ public sealed class PluginService(IServiceProvider serviceProvider)
     {
         List<Result> results = new();
 
-        foreach (var plugin in _plugins)
+        foreach (var plugin in _plugins.Values)
         {
             if (plugin is IMigratablePlugin migratablePlugin)
             {
@@ -84,5 +84,17 @@ public sealed class PluginService(IServiceProvider serviceProvider)
             }
         }
         return results.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Gets a plugin via the provided name.
+    /// </summary>
+    /// <param name="name">The name of the plugin.</param>
+    /// <returns>A result containing the plugin or a <see cref="NotFoundError"/>.</returns>
+    public Result<IPluginDescriptor> GetPlugin(string name)
+    {
+        return _plugins.TryGetValue(name, out var plugin)
+            ? Result<IPluginDescriptor>.FromSuccess(plugin)
+            : new NotFoundError("No registered plugin could be found with this name.");
     }
 }
