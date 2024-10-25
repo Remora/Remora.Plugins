@@ -57,9 +57,10 @@ public sealed class PluginService
     /// means that <see cref="PluginTree.Branches"/> will contain dependency-free plugins, with subsequent
     /// dependents below them (recursively).
     /// </summary>
+    /// <param name="filter">If provided, any plugins must match the defined predicate to be added to the <see cref="PluginTree"/>.</param>
     /// <returns>The dependency tree.</returns>
     [PublicAPI, Pure]
-    public PluginTree LoadPluginTree()
+    public PluginTree LoadPluginTree(Predicate<IPluginDescriptor>? filter = null)
     {
         var pluginAssemblies = LoadAvailablePluginAssemblies().ToList();
         var pluginsWithDependencies = pluginAssemblies.ToDictionary
@@ -104,12 +105,17 @@ public sealed class PluginService
         {
             var current = sorted[0];
             var loadDescriptorResult = LoadPluginDescriptor(current);
-            if (!loadDescriptorResult.IsSuccess)
+            if (!loadDescriptorResult.IsDefined(out IPluginDescriptor? pluginDescriptor))
             {
                 continue;
             }
 
-            var node = new PluginTreeNode(loadDescriptorResult.Entity);
+            if (!filter?.Invoke(pluginDescriptor) ?? false)
+            {
+                continue;
+            }
+
+            var node = new PluginTreeNode(pluginDescriptor);
 
             var dependencies = pluginsWithDependencies[current].ToList();
             if (!dependencies.Any())
