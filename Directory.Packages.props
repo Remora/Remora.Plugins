@@ -5,8 +5,8 @@
   <ItemGroup>
     <PackageVersion Include="Remora.Extensions.Options.Immutable" Version="1.0.8" />
     <PackageVersion Include="System.Linq.Async" Version="6.0.1" />
-    <PackageVersion Include="Remora.Results.Analyzers" Version="1.0.2" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
-    <PackageVersion Include="Remora.Results" Version="7.4.1" />
+    <PackageVersion Include="Remora.Results.Analyzers" Version="1.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.2" />
+    <PackageVersion Include="Remora.Results" Version="8.0.0" />
   </ItemGroup>
 </Project>
