@@ -17,30 +17,28 @@ Generally, plugins should only reference Remora.Plugins.Abstractions, while the
 main application should reference and use Remora.Plugins.
 
 ```c#
-[assembly: RemoraPlugin(typeof(MyPlugin))]
+[assembly: RemoraPlugin]
 
-public sealed class MyPlugin : PluginDescriptor
+public sealed class MyPlugin(MyService myService) : IPluginDescriptor
 {
     /// <inheritdoc />
-    public override string Name => "My Plugin";
+    public string Name => "My Plugin";
 
     /// <inheritdoc />
-    public override string Description => "My plugin that does a thing.";
+    public string Description => "My plugin that does a thing.";
 
     /// <inheritdoc/>
-    public override Result ConfigureServices(IServiceCollection serviceCollection)
+    public static IServiceCollection ConfigureServices(IServiceCollection serviceCollection)
     {
-        serviceCollection
-            .AddScoped<MyService>();
+        serviceCollection.AddScoped<MyService>();
 
-        return Result.FromSuccess();
+        return serviceCollection;
     }
 
     /// <inheritdoc />
-    public override async ValueTask<Result> InitializeAsync(IServiceProvider serviceProvider)
+    public override async ValueTask<Result> InitializeAsync(CancellationToken ct = default)
     {
-        var myService = serviceProvider.GetRequiredService<MyService>();
-        var doThing = await myService.DoTheThingAsync();
+        var doThing = await myService.DoTheThingAsync(ct);
         if (!doThing.IsSuccess)
         {
             return doThing;
@@ -55,29 +53,25 @@ Loading plugins in your application is equally simple. The example below is
 perhaps a little convoluted, but shows the flexibility of the system.
 
 ```c#
-var pluginService = new PluginService();
+var pluginServiceOptions = new(["./plugins", "./mods"], scanAssemblyDirectory: false);
+var pluginService = new PluginService(pluginServiceOptions);
 
-var serviceCollection = new ServiceCollection()
-    .AddSingleton(pluginService);
+var serviceCollection = new ServiceCollection();
 
-var pluginTree = pluginService.LoadPluginTree();
-var configurePlugins = pluginTree.ConfigureServices(serviceCollection);
-if (!configurePlugins.IsSuccess)
-{
-    // check configurePlugins.Error to figure out why
-    return;
-}
+// Load plugins where the plugin name is greater than 3 characters long.
+var pluginTreeBuilder = pluginService.LoadPluginTree(serviceCollection, filter: plugin => plugin.Name.Length > 3);
 
 _services = serviceCollection.BuildServiceProvider();
+var pluginTree = pluginTreeBuilder.Build(_services);
 
-var initializePlugins = await pluginTree.InitializeAsync(_services, ct);
+var initializePlugins = await pluginTree.InitializeAsync(ct);
 if (!initializePlugins.IsSuccess)
 {
     // check initializePlugins.Error to figure out why
     return;
 }
 
-var migratePlugins = await pluginTree.MigrateAsync(_services, ct);
+var migratePlugins = await pluginTree.MigrateAsync(ct);
 if (!migratePlugins.IsSuccess)
 {
     // check migratePlugins.Error to figure out why

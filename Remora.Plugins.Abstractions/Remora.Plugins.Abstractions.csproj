@@ -1,6 +1,8 @@
 <Project Sdk="Remora.Sdk">
     <PropertyGroup>
         <VersionPrefix>5.0.1</VersionPrefix>
+		<TargetNetStandard>false</TargetNetStandard>
+		<LibraryFrameworks>net8.0;net9.0</LibraryFrameworks>
         <Description>
             Abstract representations of a plugin system.
         </Description>

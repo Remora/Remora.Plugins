@@ -27,7 +27,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using Microsoft.Extensions.DependencyInjection;
 using Remora.Plugins.Abstractions;
 using Remora.Plugins.Errors;
 using Remora.Results;
@@ -37,10 +36,14 @@ namespace Remora.Plugins;
 /// <summary>
 /// Represents a tree of plugins, ordered by their dependencies.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="PluginTree"/> class.
+/// </remarks>
+/// <param name="branches">The dependency branches.</param>
 [PublicAPI]
-public sealed class PluginTree
+public sealed class PluginTree(List<PluginTreeNode>? branches = null)
 {
-    private readonly List<PluginTreeNode> _branches;
+    private readonly List<PluginTreeNode> _branches = branches ?? [];
 
     /// <summary>
     /// Gets the root nodes of the identified plugin dependency branches. The root node is considered to be the
@@ -49,43 +52,11 @@ public sealed class PluginTree
     public IReadOnlyCollection<PluginTreeNode> Branches => _branches;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PluginTree"/> class.
-    /// </summary>
-    /// <param name="branches">The dependency branches.</param>
-    public PluginTree(List<PluginTreeNode>? branches = null)
-    {
-        _branches = branches ?? new List<PluginTreeNode>();
-    }
-
-    /// <summary>
-    /// Configures the services required by the plugins.
-    /// </summary>
-    /// <param name="serviceCollection">The service collection to configure.</param>
-    /// <returns>A result which may or may not have succeeded.</returns>
-    public Result ConfigureServices(IServiceCollection serviceCollection)
-    {
-        var results = Walk
-        (
-            node => new PluginConfigurationFailed
-            (
-                node.Plugin,
-                "One or more of the plugin's dependencies failed to configure their services."
-            ),
-            node => node.Plugin.ConfigureServices(serviceCollection)
-        ).ToList();
-
-        return results.Any(r => !r.IsSuccess)
-            ? new AggregateError(results.Where(r => !r.IsSuccess).Cast<IResult>().ToList())
-            : Result.FromSuccess();
-    }
-
-    /// <summary>
     /// Initializes the plugins in the tree.
     /// </summary>
-    /// <param name="services">The available services.</param>
     /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result which may or may not have succeeded.</returns>
-    public async Task<Result> InitializeAsync(IServiceProvider services, CancellationToken ct = default)
+    public async Task<Result> InitializeAsync(CancellationToken ct = default)
     {
         var results = await WalkAsync
         (
@@ -94,7 +65,7 @@ public sealed class PluginTree
                 node.Plugin,
                 "One or more of the plugin's dependencies failed to initialize."
             ),
-            async (node, c) => await node.Plugin.InitializeAsync(services, c),
+            async (node, c) => await node.Plugin.InitializeAsync(c),
             ct: ct
         ).ToListAsync(ct);
 
@@ -106,10 +77,9 @@ public sealed class PluginTree
     /// <summary>
     /// Migrates any persistent data stores of the plugins in the tree.
     /// </summary>
-    /// <param name="services">The available services.</param>
     /// <param name="ct">The cancellation token for this operation.</param>
     /// <returns>A result which may or may not have succeeded.</returns>
-    public async Task<Result> MigrateAsync(IServiceProvider services, CancellationToken ct = default)
+    public async Task<Result> MigrateAsync(CancellationToken ct = default)
     {
         var results = await WalkAsync
         (
@@ -125,7 +95,7 @@ public sealed class PluginTree
                     return Result.FromSuccess();
                 }
 
-                return await migratablePlugin.MigrateAsync(services, c);
+                return await migratablePlugin.MigrateAsync(c);
             },
             ct: ct
         ).ToListAsync(ct);

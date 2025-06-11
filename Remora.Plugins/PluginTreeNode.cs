@@ -57,7 +57,7 @@ public sealed class PluginTreeNode
     )
     {
         this.Plugin = plugin;
-        _dependents = dependants ?? new List<PluginTreeNode>();
+        _dependents = dependants ?? [];
     }
 
     /// <summary>
@@ -94,6 +94,6 @@ public sealed class PluginTreeNode
     /// <inheritdoc/>
     public override string ToString()
     {
-        return $"{this.Plugin} => ({string.Join(", ", _dependents.Select(d => d.Plugin))})";
+        return $"{this.Plugin} => ({string.Join(", ", _dependents.Select(d => d.Plugin.ToString()))})";
     }
 }

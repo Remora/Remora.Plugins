@@ -22,11 +22,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using JetBrains.Annotations;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Remora.Plugins.Abstractions;
 using Remora.Plugins.Abstractions.Attributes;
 using Remora.Plugins.Errors;
@@ -38,39 +39,94 @@ namespace Remora.Plugins.Services;
 /// <summary>
 /// Serves functionality related to plugins.
 /// </summary>
+/// <remarks>
+/// Initializes a new instance of the <see cref="PluginService"/> class.
+/// </remarks>
+/// <param name="options">The service options.</param>
 [PublicAPI]
-public sealed class PluginService
+public sealed class PluginService(PluginServiceOptions? options = null)
 {
-    private readonly PluginServiceOptions _options;
+    private readonly PluginServiceOptions _options = options ?? PluginServiceOptions.Default;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PluginService"/> class.
-    /// </summary>
-    /// <param name="options">The service options.</param>
-    public PluginService(IOptions<PluginServiceOptions> options)
-    {
-        _options = options.Value;
-    }
+    private Dictionary<Assembly, IEnumerable<Type>>? _pluginsByAssembly;
 
     /// <summary>
     /// Loads all available plugins into a tree structure, ordered by their topological dependencies. Effectively, this
     /// means that <see cref="PluginTree.Branches"/> will contain dependency-free plugins, with subsequent
     /// dependents below them (recursively).
     /// </summary>
+    /// <param name="services">The service collection with which to register the plugin tree.</param>
     /// <param name="filter">If provided, any plugins must match the defined predicate to be added to the <see cref="PluginTree"/>.</param>
     /// <returns>The dependency tree.</returns>
     [PublicAPI, Pure]
-    public PluginTree LoadPluginTree(Predicate<IPluginDescriptor>? filter = null)
+    public PluginTreeBuilder LoadPluginTree(IServiceCollection services, Predicate<IPluginDescriptor>? filter = null)
     {
-        var pluginAssemblies = LoadAvailablePluginAssemblies().ToList();
-        var pluginsWithDependencies = pluginAssemblies.ToDictionary
+        filter ??= _ => true;
+        LoadAvailablePluginAssemblies();
+
+        var pluginsWithDependencies = _pluginsByAssembly.Keys.ToDictionary
         (
-            a => a.PluginAssembly,
-            a => a.PluginAssembly.GetReferencedAssemblies()
-                .Where(ra => pluginAssemblies.Any(pa => pa.PluginAssembly.FullName == ra.FullName))
-                .Select(ra => pluginAssemblies.First(pa => pa.PluginAssembly.FullName == ra.FullName))
-                .Select(ra => ra.PluginAssembly)
+            a => a,
+            a => a.GetReferencedAssemblies()
+                .Where(ra => _pluginsByAssembly.Keys.Any(pa => pa.FullName == ra.FullName))
+                .Select(ra => _pluginsByAssembly.Keys.First(pa => pa.FullName == ra.FullName))
         );
+
+        // Load plugin dependencies.
+        foreach (IEnumerable<Type> plugins in _pluginsByAssembly.Values)
+        {
+            MethodInfo configureHelper = typeof(PluginService).GetMethod(nameof(ConfigurePlugin))
+                ?? throw new InvalidOperationException(); // This will never be null.
+
+            foreach (var plugin in plugins)
+            {
+                configureHelper.MakeGenericMethod(plugin).Invoke(null, [services]);
+            }
+        }
+
+        // Build and populate plugin tree.
+        var tree = new PluginTreeBuilder(filter);
+        var nodes = new Dictionary<Assembly, PluginTreeNodeBuilder>();
+
+        var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
+        while (sorted.Count > 0)
+        {
+            Assembly current = sorted[0];
+            IEnumerable<Type> pluginTypes = _pluginsByAssembly[current];
+
+            foreach (var type in pluginTypes)
+            {
+                var treeNodeBuilder = new PluginTreeNodeBuilder(current, type);
+                var dependencies = pluginsWithDependencies[current].ToList();
+
+                if (!dependencies.Any())
+                {
+                    tree.AddTreeNode(treeNodeBuilder);
+                }
+
+                foreach (var dependency in dependencies)
+                {
+                    if (!IsDirectDependency(current, dependency))
+                    {
+                        continue;
+                    }
+
+                    var dependencyNode = nodes[dependency];
+                    dependencyNode.AddDependent(treeNodeBuilder);
+                }
+
+                nodes.Add(current, treeNodeBuilder);
+                sorted.Remove(current);
+            }
+        }
+
+        return tree;
+
+        bool IsDirectDependency(Assembly assembly, Assembly dependency)
+        {
+            var dependencies = pluginsWithDependencies[assembly];
+            return IsDependency(assembly, dependency) && dependencies.All(d => !IsDependency(d, dependency));
+        }
 
         bool IsDependency(Assembly assembly, Assembly other)
         {
@@ -90,61 +146,12 @@ public sealed class PluginService
 
             return false;
         }
-
-        bool IsDirectDependency(Assembly assembly, Assembly dependency)
-        {
-            var dependencies = pluginsWithDependencies[assembly];
-            return IsDependency(assembly, dependency) && dependencies.All(d => !IsDependency(d, dependency));
-        }
-
-        var tree = new PluginTree();
-        var nodes = new Dictionary<Assembly, PluginTreeNode>();
-
-        var sorted = pluginsWithDependencies.Keys.TopologicalSort(k => pluginsWithDependencies[k]).ToList();
-        while (sorted.Count > 0)
-        {
-            var current = sorted[0];
-            var loadDescriptorResult = LoadPluginDescriptor(current);
-            if (!loadDescriptorResult.IsDefined(out IPluginDescriptor? pluginDescriptor))
-            {
-                continue;
-            }
-
-            if (!filter?.Invoke(pluginDescriptor) ?? false)
-            {
-                continue;
-            }
-
-            var node = new PluginTreeNode(pluginDescriptor);
-
-            var dependencies = pluginsWithDependencies[current].ToList();
-            if (!dependencies.Any())
-            {
-                // This is a root of a chain
-                tree.AddBranch(node);
-            }
-
-            foreach (var dependency in dependencies)
-            {
-                if (!IsDirectDependency(current, dependency))
-                {
-                    continue;
-                }
-
-                var dependencyNode = nodes[dependency];
-                dependencyNode.AddDependent(node);
-            }
-
-            nodes.Add(current, node);
-            sorted.Remove(current);
-        }
-
-        return tree;
     }
 
     /// <summary>
     /// Loads all available plugins into a flat list.
     /// </summary>
+    /// <param name="services">The service provider used to build the plugins.</param>
     /// <remarks>
     /// This method should generally not be used for actually loading plugins into your application, since it may not
     /// properly order plugins in more complex dependency graphs. Prefer using <see cref="LoadPluginTree"/> and its
@@ -152,78 +159,44 @@ public sealed class PluginService
     /// </remarks>
     /// <returns>The descriptors of the available plugins.</returns>
     [Pure]
-    public IEnumerable<IPluginDescriptor> LoadPlugins()
+    public IEnumerable<IPluginDescriptor> LoadPlugins(IServiceProvider services)
     {
-        var pluginAssemblies = LoadAvailablePluginAssemblies().ToList();
-        var sorted = pluginAssemblies.TopologicalSort
+        LoadAvailablePluginAssemblies();
+        var pluginsWithDependencies = _pluginsByAssembly.Keys.ToDictionary
         (
-            a => a.PluginAssembly.GetReferencedAssemblies()
-                .Where
-                (
-                    n => pluginAssemblies.Any(pa => pa.PluginAssembly.GetName().FullName == n.FullName)
-                )
-                .Select
-                (
-                    n => pluginAssemblies.First(pa => pa.PluginAssembly.GetName().FullName == n.FullName)
-                )
+            a => a,
+            a => a.GetReferencedAssemblies()
+                .Where(ra => _pluginsByAssembly.Keys.Any(pa => pa.FullName == ra.FullName))
+                .Select(ra => _pluginsByAssembly.Keys.First(pa => pa.FullName == ra.FullName))
         );
 
-        foreach (var pluginAssembly in sorted)
+        foreach ((Assembly assembly, IEnumerable<Assembly> types) in pluginsWithDependencies)
         {
-            var descriptor = (IPluginDescriptor?)Activator.CreateInstance
-            (
-                pluginAssembly.PluginAttribute.PluginDescriptor
-            );
+            var pluginTypes = _pluginsByAssembly[assembly].Concat(types.SelectMany(it => _pluginsByAssembly[it]));
 
-            if (descriptor is null)
+            foreach (var pluginType in pluginTypes)
             {
-                continue;
+                yield return PluginTreeNodeBuilder.BuildPluginDescriptor(services, pluginType);
             }
-
-            yield return descriptor;
         }
     }
 
-    /// <summary>
-    /// Loads the plugin descriptor from the given assembly.
-    /// </summary>
-    /// <param name="assembly">The assembly.</param>
-    /// <returns>The plugin descriptor.</returns>
-    [Pure]
-    private static Result<IPluginDescriptor> LoadPluginDescriptor(Assembly assembly)
-    {
-        var pluginAttribute = assembly.GetCustomAttribute<RemoraPlugin>();
-        if (pluginAttribute is null)
-        {
-            return new AssemblyIsNotPluginError();
-        }
-
-        IPluginDescriptor descriptor;
-        try
-        {
-            var createdDescriptor = (IPluginDescriptor?)Activator.CreateInstance(pluginAttribute.PluginDescriptor);
-            if (createdDescriptor is null)
-            {
-                return new InvalidPluginError();
-            }
-
-            descriptor = createdDescriptor;
-        }
-        catch (Exception e)
-        {
-            return e;
-        }
-
-        return Result<IPluginDescriptor>.FromSuccess(descriptor);
-    }
+    private static IServiceCollection ConfigurePlugin<TPluginDescriptor>(IServiceCollection services)
+        where TPluginDescriptor : IPluginDescriptor
+        => TPluginDescriptor.ConfigureServices(services);
 
     /// <summary>
     /// Loads the available plugin assemblies.
     /// </summary>
-    /// <returns>The available assemblies.</returns>
-    [Pure]
-    private IEnumerable<(RemoraPlugin PluginAttribute, Assembly PluginAssembly)> LoadAvailablePluginAssemblies()
+    /// <param name="reload">If <see langword="true"/>, this will empty and re-create the plugins.</param>
+    [MemberNotNull(nameof(_pluginsByAssembly))]
+    private void LoadAvailablePluginAssemblies(bool reload = false)
     {
+        if (!reload && _pluginsByAssembly?.Count > 0)
+        {
+            return;
+        }
+
         var searchPaths = new List<string>();
 
         if (_options.ScanAssemblyDirectory)
@@ -249,8 +222,11 @@ public sealed class PluginService
                 "*.dll",
                 SearchOption.AllDirectories
             )
-        ).SelectMany(a => a);
+        )
+        .SelectMany(a => a)
+        .ToArray();
 
+        _pluginsByAssembly = new(assemblyPaths.Length);
         foreach (var assemblyPath in assemblyPaths)
         {
             Assembly assembly;
@@ -263,13 +239,14 @@ public sealed class PluginService
                 continue;
             }
 
-            var pluginAttribute = assembly.GetCustomAttribute<RemoraPlugin>();
-            if (pluginAttribute is null)
+            if (assembly.GetCustomAttribute<RemoraPlugin>() is not null)
             {
-                continue;
+                _pluginsByAssembly[assembly] = assembly.GetExportedTypes().Where(IsPlugin);
             }
-
-            yield return (pluginAttribute, assembly);
         }
+
+        static bool IsPlugin(Type type)
+            => typeof(IPluginDescriptor).IsAssignableFrom(type) &&
+               type is { IsAbstract: false, IsInterface: false };
     }
 }

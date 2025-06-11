@@ -35,4 +35,10 @@ public record PluginServiceOptions
 (
     IEnumerable<string> PluginSearchPaths,
     bool ScanAssemblyDirectory = true
-);
+)
+{
+    /// <summary>
+    /// Gets a default, empty instance of this <see cref="PluginServiceOptions"/> which searches the assembly directory.
+    /// </summary>
+    public static PluginServiceOptions Default { get; } = new([]);
+}
